@@ -6,7 +6,7 @@
     android:padding="16dp"
     android:background="#F4F6F9">
 
-    <!-- Header & Status -->
+    <!-- Header & Ping -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -36,7 +36,6 @@
                 android:textSize="13sp" />
         </LinearLayout>
 
-        <!-- Indikator Hasil Ping -->
         <TextView
             android:id="@+id/tvPing"
             android:layout_width="wrap_content"
@@ -50,7 +49,7 @@
             android:paddingVertical="4dp" />
     </LinearLayout>
 
-    <!-- Tombol Action Bar (Start, Link, Ping) -->
+    <!-- Tombol Bar Utama -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -86,7 +85,7 @@
             android:textColor="#FFFFFF" />
     </LinearLayout>
 
-    <!-- Tab Config YAML (Collapsible/Ringkas) -->
+    <!-- Editor Config -->
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
@@ -106,9 +105,10 @@
         android:fontFamily="monospace"
         android:textSize="11sp"
         android:scrollbars="vertical"
-        android:hint="# Konfigurasi YAML akan muncul di sini..."
+        android:hint="# Tempel raw YAML di sini..."
         android:layout_marginTop="4dp" />
 
+    <!-- DNS & Action Tombol Perbaiki / Simpan -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -126,17 +126,27 @@
             android:paddingHorizontal="8dp" />
 
         <Button
-            android:id="@+id/btnSaveConfig"
+            android:id="@+id/btnFixConfig"
             android:layout_width="wrap_content"
             android:layout_height="38dp"
             android:layout_marginStart="6dp"
+            android:text="FIX CONFIG"
+            android:textSize="11sp"
+            android:backgroundTint="#FD7E14"
+            android:textColor="#FFFFFF" />
+
+        <Button
+            android:id="@+id/btnSaveConfig"
+            android:layout_width="wrap_content"
+            android:layout_height="38dp"
+            android:layout_marginStart="4dp"
             android:text="SIMPAN"
-            android:textSize="12sp"
+            android:textSize="11sp"
             android:backgroundTint="#6C757D"
             android:textColor="#FFFFFF" />
     </LinearLayout>
 
-    <!-- Terminal Jendela Log Realtime -->
+    <!-- Terminal Jendela Log -->
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
@@ -162,6 +172,6 @@
             android:textColor="#00FF66"
             android:fontFamily="monospace"
             android:textSize="11sp"
-            android:text="[System] Menunggu VPN diaktifkan...\n" />
+            android:text="[System] Siap dijalankan.\n" />
     </ScrollView>
 </LinearLayout>

@@ -24,7 +24,7 @@ import java.net.URL;
 
 public class MainActivity extends AppCompatActivity {
     private boolean isRunning = false;
-    private Button btnToggle, btnAddConfig, btnSaveConfig, btnPing;
+    private Button btnToggle, btnAddConfig, btnSaveConfig, btnPing, btnFixConfig;
     private TextView tvStatus, tvPing, tvLogs;
     private EditText etConfigYaml, etDns;
     private ScrollView svLogs;
@@ -53,6 +53,7 @@ public class MainActivity extends AppCompatActivity {
         btnAddConfig = findViewById(R.id.btnAddConfig);
         btnSaveConfig = findViewById(R.id.btnSaveConfig);
         btnPing = findViewById(R.id.btnPing);
+        btnFixConfig = findViewById(R.id.btnFixConfig);
         tvStatus = findViewById(R.id.tvStatus);
         tvPing = findViewById(R.id.tvPing);
         tvLogs = findViewById(R.id.tvLogs);
@@ -63,10 +64,24 @@ public class MainActivity extends AppCompatActivity {
         configFile = new File(getFilesDir(), "config.yaml");
         loadSavedConfig();
 
-        // Daftarkan receiver log core
         registerReceiver(logReceiver, new IntentFilter(ClashVpnService.ACTION_CORE_LOG), RECEIVER_EXPORTED);
 
         btnAddConfig.setOnClickListener(v -> showAddLinkDialog());
+
+        // Logika 1-Click Fix Config
+        btnFixConfig.setOnClickListener(v -> {
+            String currentText = etConfigYaml.getText().toString();
+            String dns = etDns.getText().toString().trim();
+            if (currentText.trim().isEmpty()) {
+                Toast.makeText(this, "Editor masih kosong!", Toast.LENGTH_SHORT).show();
+                return;
+            }
+            String repaired = ConfigConverter.autoRepairYaml(currentText, dns);
+            etConfigYaml.setText(repaired);
+            saveConfig(repaired);
+            appendLog("[Config] 1-Click Repair selesai: Struktur TUN, DNS Fake-IP, dan UDP diselaraskan.");
+            Toast.makeText(this, "Config Berhasil Diperbaiki & Disimpan!", Toast.LENGTH_SHORT).show();
+        });
 
         btnSaveConfig.setOnClickListener(v -> {
             saveConfig(etConfigYaml.getText().toString());
@@ -94,22 +109,21 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
-        // Fitur Tes Ping ke dns.google
         btnPing.setOnClickListener(v -> runPingTest());
     }
 
     private void runPingTest() {
         tvPing.setText("Testing...");
         tvPing.setTextColor(Color.parseColor("#E67E22"));
-        appendLog("[Ping] Melakukan request ke http://dns.google...");
+        appendLog("[Ping] Testing latency ke https://dns.google ...");
 
         new Thread(() -> {
             long start = System.currentTimeMillis();
             try {
-                URL url = new URL("http://dns.google");
+                URL url = new URL("https://dns.google");
                 HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-                conn.setConnectTimeout(3500);
-                conn.setReadTimeout(3500);
+                conn.setConnectTimeout(4000);
+                conn.setReadTimeout(4000);
                 conn.setRequestMethod("GET");
                 conn.setInstanceFollowRedirects(false);
 
@@ -121,11 +135,10 @@ public class MainActivity extends AppCompatActivity {
                     if (responseCode > 0) {
                         tvPing.setText(latency + " ms");
                         tvPing.setTextColor(Color.parseColor("#198754"));
-                        appendLog("[Ping Result] Koneksi Terhubung! (" + responseCode + " OK) - " + latency + "ms");
+                        appendLog("[Ping Result] Sukses terhubung! (" + responseCode + ") Latency: " + latency + "ms");
                     } else {
-                        tvPing.setText("Error");
+                        tvPing.setText("Fail");
                         tvPing.setTextColor(Color.RED);
-                        appendLog("[Ping Result] Respon kosong / RTO.");
                     }
                 });
             } catch (Exception e) {
@@ -145,7 +158,7 @@ public class MainActivity extends AppCompatActivity {
 
     private void showAddLinkDialog() {
         EditText input = new EditText(this);
-        input.setHint("Paste vless:// atau vmess://");
+        input.setHint("Paste link vless:// atau vmess://");
         new AlertDialog.Builder(this)
                 .setTitle("Import Node Proxy")
                 .setView(input)
@@ -158,7 +171,7 @@ public class MainActivity extends AppCompatActivity {
                         saveConfig(fullYaml);
                         Toast.makeText(this, "Node berhasil di-convert!", Toast.LENGTH_SHORT).show();
                     } else {
-                        Toast.makeText(this, "Link salah atau belum didukung!", Toast.LENGTH_LONG).show();
+                        Toast.makeText(this, "Link tidak didukung!", Toast.LENGTH_LONG).show();
                     }
                 })
                 .setNegativeButton("Batal", null)
