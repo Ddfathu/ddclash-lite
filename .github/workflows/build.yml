@@ -41,17 +41,18 @@ jobs:
 
       - name: Ensure gradle.properties exists
         run: |
-          echo "android.useAndroidX=true" >> gradle.properties
+          echo "android.useAndroidX=true" > gradle.properties
           echo "android.nonTransitiveRClass=true" >> gradle.properties
+          echo "org.gradle.jvmargs=-Xmx2048m -Dfile.encoding=UTF-8" >> gradle.properties
 
-      - name: Setup Gradle Wrapper
-        run: gradle wrapper
+      - name: Setup Gradle Wrapper 8.4
+        run: gradle wrapper --gradle-version 8.4 --distribution-type bin
 
       - name: Make Gradlew Executable
         run: chmod +x gradlew
 
-      - name: Build APK (Assemble Debug & Release)
-        run: ./gradlew assembleDebug --stacktrace
+      - name: Build APK (Assemble Debug)
+        run: ./gradlew assembleDebug --stacktrace --no-daemon
 
       - name: Upload DDclash APK
         uses: actions/upload-artifact@v4
