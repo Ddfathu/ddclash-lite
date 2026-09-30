@@ -24,26 +24,37 @@ jobs:
         run: |
           mkdir -p app/src/main/jniLibs/arm64-v8a
           
-          echo "[*] Mengambil link rilis Mihomo Android arm64-v8..."
-          DOWNLOAD_URL=$(curl -s "https://api.github.com/repos/MetaCubeX/mihomo/releases" | jq -r '.[].assets[] | select(.name | test("android-arm64-v8.*\\.gz$")) | .browser_download_url' | head -n 1)
+          # Daftar direct URL cadangan resmi yang pasti ada filenya
+          URL1="https://github.com/MetaCubeX/mihomo/releases/download/v1.18.10/mihomo-android-arm64-v8a-v1.18.10.gz"
+          URL2="https://github.com/MetaCubeX/mihomo/releases/download/v1.18.9/mihomo-android-arm64-v8a-v1.18.9.gz"
+          URL3="https://github.com/MetaCubeX/mihomo/releases/download/Prerelease-Alpha/mihomo-android-arm64-v8a.gz"
 
-          if [ -z "$DOWNLOAD_URL" ] || [ "$DOWNLOAD_URL" = "null" ]; then
-            DOWNLOAD_URL=$(curl -s "https://api.github.com/repos/MetaCubeX/mihomo/releases/tags/Prerelease-Alpha" | jq -r '.assets[] | select(.name | test("android-arm64-v8.*\\.gz$")) | .browser_download_url' | head -n 1)
+          echo "[*] Mendownload binary core Mihomo..."
+          if curl -f -L "$URL1" -o core.gz; then
+            echo "[✓] Berhasil download dari URL1"
+          elif curl -f -L "$URL2" -o core.gz; then
+            echo "[✓] Berhasil download dari URL2"
+          elif curl -f -L "$URL3" -o core.gz; then
+            echo "[✓] Berhasil download dari URL3"
+          else
+            echo "[✗] Semua URL gagal, mendownload mirror linux arm64..."
+            curl -f -L "https://github.com/MetaCubeX/mihomo/releases/download/v1.18.10/mihomo-linux-arm64-v1.18.10.gz" -o core.gz
           fi
-
-          echo "[*] Download URL: $DOWNLOAD_URL"
-          curl -f -L "$DOWNLOAD_URL" -o core.gz
 
           gunzip -f core.gz
           mv core app/src/main/jniLibs/arm64-v8a/libclash.so
           chmod 755 app/src/main/jniLibs/arm64-v8a/libclash.so
+          
+          echo "[✓] Core siap di jniLibs:"
           ls -lh app/src/main/jniLibs/arm64-v8a/libclash.so
 
-      - name: Ensure gradle.properties exists
+      - name: Setup gradle.properties
         run: |
-          echo "android.useAndroidX=true" > gradle.properties
-          echo "android.nonTransitiveRClass=true" >> gradle.properties
-          echo "org.gradle.jvmargs=-Xmx2048m -Dfile.encoding=UTF-8" >> gradle.properties
+          cat << 'EOF' > gradle.properties
+          android.useAndroidX=true
+          android.nonTransitiveRClass=true
+          org.gradle.jvmargs=-Xmx2048m -Dfile.encoding=UTF-8
+          EOF
 
       - name: Setup Gradle Wrapper 8.4
         run: gradle wrapper --gradle-version 8.4 --distribution-type bin
