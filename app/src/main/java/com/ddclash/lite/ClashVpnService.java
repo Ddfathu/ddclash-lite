@@ -5,8 +5,6 @@ import android.net.VpnService;
 import android.os.ParcelFileDescriptor;
 import java.io.BufferedReader;
 import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
 import java.io.InputStreamReader;
 
 public class ClashVpnService extends VpnService {
@@ -33,39 +31,19 @@ public class ClashVpnService extends VpnService {
         try {
             File configFile = new File(getFilesDir(), "config.yaml");
             if (!configFile.exists() || configFile.length() == 0) {
-                broadcastLog("[ERROR] config.yaml belum ada / kosong!");
+                broadcastLog("[ERROR] config.yaml belum disiapkan!");
                 return;
             }
 
-            // Binary dieksekusi langsung dari native library dir
             String nativeDir = getApplicationInfo().nativeLibraryDir;
             File coreBin = new File(nativeDir, "libclash.so");
 
             if (!coreBin.exists()) {
-                broadcastLog("[ERROR] libclash.so tidak ditemukan di native dir!");
+                broadcastLog("[ERROR] libclash.so tidak ditemukan!");
                 return;
             }
 
-            // 1. Bangun Virtual TUN Android
-            Builder builder = new Builder();
-            builder.setSession("DDclash Lite");
-            builder.setMtu(9000);
-            builder.addAddress("172.19.0.1", 28);
-            builder.addRoute("0.0.0.0", 0);
-            builder.addDnsServer("198.18.0.1");
-
-            try {
-                builder.addDisallowedApplication(getPackageName());
-            } catch (Exception ignored) {}
-
-            vpnInterface = builder.establish();
-            int fd = vpnInterface.getFd();
-            broadcastLog("[VPN] Virtual tun0 interface siap. FD: " + fd);
-
-            // 2. Suntikkan File Descriptor langsung ke config.yaml
-            injectFdToConfig(configFile, fd);
-
-            // 3. Jalankan binary Mihomo
+            // Jalankan Core Mihomo murni sebagai local proxy service
             ProcessBuilder pb = new ProcessBuilder(
                     coreBin.getAbsolutePath(),
                     "-d", getFilesDir().getAbsolutePath(),
@@ -73,7 +51,7 @@ public class ClashVpnService extends VpnService {
             );
             pb.redirectErrorStream(true);
             clashProcess = pb.start();
-            broadcastLog("[CORE] Mihomo aktif dengan TUN FD " + fd);
+            broadcastLog("[CORE] Mihomo proxy engine running on 127.0.0.1:7890");
 
             logThread = new Thread(() -> {
                 try (BufferedReader reader = new BufferedReader(new InputStreamReader(clashProcess.getInputStream()))) {
@@ -85,31 +63,24 @@ public class ClashVpnService extends VpnService {
             });
             logThread.start();
 
+            // Bangun VPN Interface Android
+            Builder builder = new Builder();
+            builder.setSession("DDclash Lite");
+            builder.setMtu(9000);
+            builder.addAddress("172.19.0.1", 28);
+            builder.addRoute("0.0.0.0", 0);
+            builder.addDnsServer("8.8.8.8");
+
+            // Lindungi paket aplikasi dari VPN loop
+            try {
+                builder.addDisallowedApplication(getPackageName());
+            } catch (Exception ignored) {}
+
+            vpnInterface = builder.establish();
+            broadcastLog("[VPN] Terowongan VPN Android aktif.");
+
         } catch (Exception e) {
-            broadcastLog("[ERROR] Gagal menyalakan core: " + e.getMessage());
-        }
-    }
-
-    private void injectFdToConfig(File file, int fd) {
-        try {
-            FileInputStream fis = new FileInputStream(file);
-            byte[] b = new byte[(int) file.length()];
-            fis.read(b);
-            fis.close();
-            String content = new String(b);
-
-            // Tambahkan / ganti baris file-descriptor pada blok tun
-            if (content.contains("file-descriptor:")) {
-                content = content.replaceAll("file-descriptor:\\s*\\d+", "file-descriptor: " + fd);
-            } else if (content.contains("tun:")) {
-                content = content.replace("tun:", "tun:\n  file-descriptor: " + fd);
-            }
-
-            FileOutputStream fos = new FileOutputStream(file);
-            fos.write(content.getBytes());
-            fos.close();
-        } catch (Exception e) {
-            broadcastLog("[ERROR Inject FD] " + e.getMessage());
+            broadcastLog("[ERROR] Gagal memulai service: " + e.getMessage());
         }
     }
 
@@ -120,7 +91,7 @@ public class ClashVpnService extends VpnService {
     }
 
     private void stopVpn() {
-        broadcastLog("[VPN] Menghentikan service...");
+        broadcastLog("[VPN] Menonaktifkan VPN...");
         if (clashProcess != null) {
             clashProcess.destroy();
             clashProcess = null;
