@@ -23,30 +23,24 @@ jobs:
       - name: Inject Pre-compiled Mihomo Core (arm64-v8a)
         run: |
           mkdir -p app/src/main/jniLibs/arm64-v8a
+          mkdir -p app/src/main/assets
           
-          # Daftar direct URL cadangan resmi yang pasti ada filenya
           URL1="https://github.com/MetaCubeX/mihomo/releases/download/v1.18.10/mihomo-android-arm64-v8a-v1.18.10.gz"
-          URL2="https://github.com/MetaCubeX/mihomo/releases/download/v1.18.9/mihomo-android-arm64-v8a-v1.18.9.gz"
-          URL3="https://github.com/MetaCubeX/mihomo/releases/download/Prerelease-Alpha/mihomo-android-arm64-v8a.gz"
+          URL2="https://github.com/MetaCubeX/mihomo/releases/download/Prerelease-Alpha/mihomo-android-arm64-v8a.gz"
 
-          echo "[*] Mendownload binary core Mihomo..."
-          if curl -f -L "$URL1" -o core.gz; then
-            echo "[✓] Berhasil download dari URL1"
-          elif curl -f -L "$URL2" -o core.gz; then
-            echo "[✓] Berhasil download dari URL2"
-          elif curl -f -L "$URL3" -o core.gz; then
-            echo "[✓] Berhasil download dari URL3"
-          else
-            echo "[✗] Semua URL gagal, mendownload mirror linux arm64..."
-            curl -f -L "https://github.com/MetaCubeX/mihomo/releases/download/v1.18.10/mihomo-linux-arm64-v1.18.10.gz" -o core.gz
-          fi
+          echo "[*] Mendownload binary core..."
+          curl -f -L "$URL1" -o core.gz || curl -f -L "$URL2" -o core.gz
 
           gunzip -f core.gz
-          mv core app/src/main/jniLibs/arm64-v8a/libclash.so
-          chmod 755 app/src/main/jniLibs/arm64-v8a/libclash.so
+          chmod 755 core
           
-          echo "[✓] Core siap di jniLibs:"
+          # Simpan di dua tempat: jniLibs dan assets
+          cp core app/src/main/jniLibs/arm64-v8a/libclash.so
+          cp core app/src/main/assets/clash_core
+          
+          echo "[✓] Core tersimpan di jniLibs dan assets:"
           ls -lh app/src/main/jniLibs/arm64-v8a/libclash.so
+          ls -lh app/src/main/assets/clash_core
 
       - name: Setup gradle.properties
         run: |

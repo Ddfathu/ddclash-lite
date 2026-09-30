@@ -32,23 +32,40 @@ public class ClashVpnService extends VpnService {
     }
 
     private void prepareCoreBinary(File targetBin) {
+        if (targetBin.exists() && targetBin.length() > 5000000) {
+            targetBin.setExecutable(true, false);
+            return;
+        }
+
         try {
+            InputStream in = null;
+
+            // Jalur 1: Dari nativeLibraryDir
             String nativeDir = getApplicationInfo().nativeLibraryDir;
             File originalSo = new File(nativeDir, "libclash.so");
+            if (originalSo.exists() && originalSo.length() > 5000000) {
+                broadcastLog("[SETUP] Menyalin binary dari native directory...");
+                in = new FileInputStream(originalSo);
+            } else {
+                // Jalur 2: Dari assets
+                broadcastLog("[SETUP] Mengekstrak binary langsung dari folder assets...");
+                in = getAssets().open("clash_core");
+            }
 
-            if (originalSo.exists() && (!targetBin.exists() || targetBin.length() != originalSo.length())) {
-                broadcastLog("[SETUP] Menyalin core binary ke internal...");
-                try (InputStream in = new FileInputStream(originalSo);
-                     OutputStream out = new FileOutputStream(targetBin)) {
-                    byte[] buf = new byte[8192];
+            if (in != null) {
+                try (OutputStream out = new FileOutputStream(targetBin)) {
+                    byte[] buf = new byte[16384];
                     int len;
                     while ((len = in.read(buf)) > 0) {
                         out.write(buf, 0, len);
                     }
                 }
+                in.close();
             }
+
             targetBin.setExecutable(true, false);
             targetBin.setReadable(true, false);
+            broadcastLog("[SETUP] Binary clash_core siap dieksekusi (" + (targetBin.length() / 1024 / 1024) + " MB).");
         } catch (Exception e) {
             broadcastLog("[ERROR Setup] " + e.getMessage());
         }
@@ -58,19 +75,18 @@ public class ClashVpnService extends VpnService {
         try {
             File configFile = new File(getFilesDir(), "config.yaml");
             if (!configFile.exists() || configFile.length() == 0) {
-                broadcastLog("[ERROR] config.yaml belum disimpan atau masih kosong!");
+                broadcastLog("[ERROR] config.yaml belum disimpan atau kosong!");
                 return;
             }
 
             File coreBin = new File(getFilesDir(), "clash_core");
             prepareCoreBinary(coreBin);
 
-            if (!coreBin.exists()) {
+            if (!coreBin.exists() || coreBin.length() == 0) {
                 broadcastLog("[ERROR] Binary clash_core tidak ditemukan!");
                 return;
             }
 
-            // Inisialisasi VPN Android
             Builder builder = new Builder();
             builder.setSession("DDclash Lite");
             builder.setMtu(9000);
@@ -78,15 +94,13 @@ public class ClashVpnService extends VpnService {
             builder.addRoute("0.0.0.0", 0);
             builder.addDnsServer("198.18.0.1");
 
-            // Bypass proses sendiri dari VPN agar koneksi outbound ke VPS tidak loop
             try {
                 builder.addDisallowedApplication(getPackageName());
             } catch (Exception ignored) {}
 
             vpnInterface = builder.establish();
-            broadcastLog("[VPN] tun0 interface established & package bypassed.");
+            broadcastLog("[VPN] tun0 interface established & bypassed.");
 
-            // Jalankan Core Mihomo
             ProcessBuilder pb = new ProcessBuilder(
                     coreBin.getAbsolutePath(),
                     "-d", getFilesDir().getAbsolutePath(),
@@ -96,7 +110,6 @@ public class ClashVpnService extends VpnService {
             clashProcess = pb.start();
             broadcastLog("[CORE] Mihomo process started.");
 
-            // Thread pembaca log terminal core
             logThread = new Thread(() -> {
                 try (BufferedReader reader = new BufferedReader(new InputStreamReader(clashProcess.getInputStream()))) {
                     String line;
