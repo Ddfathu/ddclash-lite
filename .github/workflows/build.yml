@@ -21,28 +21,30 @@ jobs:
           cache: gradle
 
       - name: Inject Pre-compiled Mihomo Core (arm64-v8a)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           mkdir -p app/src/main/jniLibs/arm64-v8a
-          echo "[*] Mencari URL rilis resmi Mihomo Android arm64-v8a..."
           
-          # Ambil URL download binary android arm64 langsung dari rilis GitHub terbaru
-          DOWNLOAD_URL=$(curl -s https://api.github.com/repos/MetaCubeX/mihomo/releases/latest | grep "browser_download_url.*android-arm64-v8a.*\.gz" | head -n 1 | cut -d '"' -f 4)
-          
-          # Jika rilis stabil kosong, fallback ke prerelease alpha
-          if [ -z "$DOWNLOAD_URL" ]; then
-            DOWNLOAD_URL=$(curl -s https://api.github.com/repos/MetaCubeX/mihomo/releases/tags/Prerelease-Alpha | grep "browser_download_url.*android-arm64-v8a.*\.gz" | head -n 1 | cut -d '"' -f 4)
+          # Coba ambil URL via API resmi dengan otentikasi runner
+          DOWNLOAD_URL=$(curl -s -H "Authorization: Bearer $GH_TOKEN" https://api.github.com/repos/MetaCubeX/mihomo/releases | jq -r '.[].assets[] | select(.name | test("android-arm64-v8a.*\\.gz$")) | .browser_download_url' | head -n 1)
+
+          # Fallback jika API kosong/gagal parse
+          if [ -z "$DOWNLOAD_URL" ] || [ "$DOWNLOAD_URL" = "null" ]; then
+            echo "[!] URL API kosong, beralih ke direct fallback release..."
+            DOWNLOAD_URL="https://github.com/MetaCubeX/mihomo/releases/download/v1.18.10/mihomo-android-arm64-v8a-v1.18.10.gz"
           fi
 
-          echo "[*] Downloading from: $DOWNLOAD_URL"
-          curl -s -L "$DOWNLOAD_URL" -o core.gz
+          echo "[*] Downloading core from: $DOWNLOAD_URL"
+          curl -f -L "$DOWNLOAD_URL" -o core.gz
 
-          # Ekstraksi dan pastikan file binary valid
-          gunzip core.gz
+          # Ekstrak file gz
+          gunzip -f core.gz
           mv core app/src/main/jniLibs/arm64-v8a/libclash.so
           chmod 755 app/src/main/jniLibs/arm64-v8a/libclash.so
           
+          echo "[✓] File binary siap:"
           ls -lh app/src/main/jniLibs/arm64-v8a/libclash.so
-          echo "[✓] Binary core berhasil disiapkan."
 
       - name: Setup Gradle Wrapper
         run: gradle wrapper
