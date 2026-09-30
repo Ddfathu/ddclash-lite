@@ -25,25 +25,24 @@ jobs:
           mkdir -p app/src/main/jniLibs/arm64-v8a
           
           echo "[*] Mengambil link rilis Mihomo Android arm64-v8..."
-          # Format resmi MetaCubeX menggunakan pattern: mihomo-android-arm64-v8-*.gz
           DOWNLOAD_URL=$(curl -s "https://api.github.com/repos/MetaCubeX/mihomo/releases" | jq -r '.[].assets[] | select(.name | test("android-arm64-v8.*\\.gz$")) | .browser_download_url' | head -n 1)
 
           if [ -z "$DOWNLOAD_URL" ] || [ "$DOWNLOAD_URL" = "null" ]; then
-            echo "[!] Menggunakan URL langsung Prerelease-Alpha..."
-            # Query langsung release Prerelease-Alpha
             DOWNLOAD_URL=$(curl -s "https://api.github.com/repos/MetaCubeX/mihomo/releases/tags/Prerelease-Alpha" | jq -r '.assets[] | select(.name | test("android-arm64-v8.*\\.gz$")) | .browser_download_url' | head -n 1)
           fi
 
           echo "[*] Download URL: $DOWNLOAD_URL"
           curl -f -L "$DOWNLOAD_URL" -o core.gz
 
-          # Ekstraksi dan rename menjadi library native
           gunzip -f core.gz
           mv core app/src/main/jniLibs/arm64-v8a/libclash.so
           chmod 755 app/src/main/jniLibs/arm64-v8a/libclash.so
-          
-          echo "[✓] Core Mihomo berhasil disiapkan:"
           ls -lh app/src/main/jniLibs/arm64-v8a/libclash.so
+
+      - name: Ensure gradle.properties exists
+        run: |
+          echo "android.useAndroidX=true" >> gradle.properties
+          echo "android.nonTransitiveRClass=true" >> gradle.properties
 
       - name: Setup Gradle Wrapper
         run: gradle wrapper
@@ -51,12 +50,12 @@ jobs:
       - name: Make Gradlew Executable
         run: chmod +x gradlew
 
-      - name: Build Release APK
-        run: ./gradlew assembleRelease --stacktrace
+      - name: Build APK (Assemble Debug & Release)
+        run: ./gradlew assembleDebug --stacktrace
 
       - name: Upload DDclash APK
         uses: actions/upload-artifact@v4
         with:
           name: DDclash-Lite-APK
-          path: app/build/outputs/apk/release/*.apk
+          path: app/build/outputs/apk/**/*.apk
           if-no-files-found: error
